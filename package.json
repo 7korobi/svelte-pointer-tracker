@@ -1,6 +1,6 @@
 {
 	"name": "svelte-pointer-tracker",
-	"version": "0.1.2",
+	"version": "0.1.3",
 	"homepage": "https://github.com/7korobi/svelte-pointer-tracker/blob/main/src/lib/",
 	"license": "MIT",
 	"keywords": [
