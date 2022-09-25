@@ -1,18 +1,5 @@
-import { __BROWSER__ } from 'svelte-petit-utils';
+import { __BROWSER__, type POINT, type POINT_WITH_SCALE, type SIZE } from 'svelte-petit-utils';
 import { listen } from 'svelte/internal';
-
-type top = number;
-type right = number;
-type bottom = number;
-type left = number;
-
-type width = number;
-type height = number;
-type scale = number;
-
-type SIZE = [width, height];
-type POINT = [left, top];
-type POINT_WITH_SCALE = [left, top, scale];
 
 enum Button {
 	Left
