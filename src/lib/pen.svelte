@@ -36,7 +36,7 @@
 			ops.tracked.forEach(({ point, points }) => {
 				const [width, height] = size;
 				const [left, top] = point;
-				const ctx = ops.handlerEl.getContext('2d');
+				const ctx = ops.handlerEl.getContext('2d')!;
 				if (ctx.canvas.width !== width) {
 					ctx.canvas.width = width;
 					ctx.canvas.height = height;

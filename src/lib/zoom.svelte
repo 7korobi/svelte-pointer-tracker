@@ -1,13 +1,34 @@
 <script lang="ts">
+	import { state } from 'svelte-browser/store';
 	import type { POINT, POINT_WITH_SCALE, SIZE_WITH_SCALE } from 'svelte-petit-utils';
-	import type { InputEvent } from './tracker';
 
 	import { __BROWSER__ } from 'svelte-petit-utils';
-	import { Operations } from './tracker';
+	import { Operations, Operation } from './tracker';
 
-	const SVG = __BROWSER__ ? document.createElementNS('http://www.w3.org/2000/svg', 'svg') : null;
+	const SVG = __BROWSER__
+		? document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+		: undefined;
 	const matrix = createMatrix();
-	const tracker = new Operations({ start, move, wheel });
+	const tracker = new Operations({
+		start({ current }, e) {
+			if (2 < current.length) return false;
+			e.preventDefault();
+
+			return true;
+		},
+		move(ops, e) {
+			const gap = ops.relationGap(-2);
+			calc(gap.wheel[0], gap.pan[0]);
+		},
+		wheel(ops, e) {
+			e.preventDefault();
+			calc(ops.wheel, [0, 0]);
+		},
+		change(ops, e) {
+			({ className } = ops.current[0]);
+			className += ` ${state.threshold}`;
+		}
+	});
 
 	export let mode = 'image' as 'image' | 'text';
 	export let min = 0.2;
@@ -15,28 +36,14 @@
 	export let scale = 1;
 	export let x = 0;
 	export let y = 0;
+	let className: string = '';
 
 	// subscribe initial event.
 	$: setTransform([x, y, scale]);
 
-	function wheel(ops: Operations<HTMLDivElement>, e: WheelEvent) {
-		e.preventDefault();
-		calc(ops.wheel, [0, 0]);
-	}
-
-	function start({ current }: Operations<HTMLDivElement>, e: InputEvent) {
-		if (2 < current.length) return false;
-		e.preventDefault();
-		return true;
-	}
-
-	function move(ops: Operations<HTMLDivElement>, e: InputEvent) {
-		const gap = ops.relationGap(-2);
-		calc(gap.wheel[0], gap.pan[0]);
-	}
-
 	function calc([ox, oy, scaleDiff]: POINT_WITH_SCALE, [panX, panY]: POINT) {
-		const newMatrix = createMatrix()
+		if (!matrix) return;
+		const newMatrix = createMatrix()!
 			.translate(panX, panY) // Translate according to panning.
 			.translate(ox, oy) // Scale about the origin.
 			.translate(x, y) // Apply current translate
@@ -59,15 +66,15 @@
 		if (!thisBounds.width || !thisBounds.height) return updateTransform([x, y, scale]);
 
 		// Create points for refZoom.
-		let topLeft = createPoint();
+		let topLeft = createPoint()!;
 		topLeft.x = tracker.offset[0] - thisBounds.left;
 		topLeft.y = tracker.offset[1] - thisBounds.top;
-		let bottomRight = createPoint();
+		let bottomRight = createPoint()!;
 		bottomRight.x = tracker.size[0] + topLeft.x;
 		bottomRight.y = tracker.size[1] + topLeft.y;
 
 		// Calculate the intended position of refZoom.
-		const newMatrix = createMatrix().translate(x, y).scale(scale).multiply(matrix.inverse()); // Undo current transform
+		const newMatrix = createMatrix()!.translate(x, y).scale(scale).multiply(matrix.inverse()); // Undo current transform
 
 		topLeft = topLeft.matrixTransform(newMatrix);
 		bottomRight = bottomRight.matrixTransform(newMatrix);
@@ -94,6 +101,7 @@
 	 * Update transform values without checking bounds. This is only called in setTransform.
 	 */
 	function updateTransform(upd: SIZE_WITH_SCALE) {
+		if (!matrix) return;
 		if (upd[2] < min) return;
 		if (max < upd[2]) return;
 
@@ -106,16 +114,20 @@
 		return [matrix.e, matrix.f, matrix.a];
 	}
 
-	function createMatrix(): SVGMatrix {
+	function createMatrix() {
 		return SVG?.createSVGMatrix();
 	}
 
-	function createPoint(): SVGPoint {
+	function createPoint() {
 		return SVG?.createSVGPoint();
 	}
 </script>
 
-<div use:tracker.listener class="zoomBox" style="--x: {x}px; --y: {y}px; --scale: {scale};">
+<div
+	use:tracker.listener
+	class="zoomBox {className || ''}"
+	style="--x: {x}px; --y: {y}px; --scale: {scale};"
+>
 	<div bind:this={tracker.originEl} class={mode}>
 		<slot />
 	</div>

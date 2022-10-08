@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Zoom, Pen } from '$lib';
+	import { Browser } from 'svelte-browser';
 
 	let ix: number;
 	let iy: number;
@@ -8,6 +9,8 @@
 	let ty: number;
 	let tscale: number;
 </script>
+
+<Browser ratio={1.0} isDefaultSafeArea={false} />
 
 <h1>Welcome to your library project</h1>
 <p>Create your package using @sveltejs/package and preview/showcase your work with SvelteKit</p>

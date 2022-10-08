@@ -1,11 +1,21 @@
-import { __BROWSER__, type POINT, type POINT_WITH_SCALE, type SIZE } from 'svelte-petit-utils';
 import { listen } from 'svelte/internal';
+
+import type { POINT, POINT_WITH_SCALE, SIZE, END_LISTENER } from 'svelte-petit-utils';
+import { isLegacy } from 'svelte-browser';
+import { PRESS_LIMIT } from 'svelte-browser/const';
+import { state } from 'svelte-browser/store';
 
 enum Button {
 	Left
 }
 
 const noop = () => {};
+const PASSIVE = false;
+const FLICK_SPEED = 14;
+const DIAGONAL_LIMIT_STRICT = (Math.PI * 22.5) / 180;
+const DIAGONAL_LIMIT_LOOSE = (Math.PI * 67.5) / 180;
+
+type POINTLOG = [number, number, number];
 
 type OperationCallback<T extends HTMLElement, E, R> = (ops: Operations<T>, event: E) => R;
 
@@ -15,11 +25,13 @@ interface OperationsOptions<T extends HTMLElement> {
 	end?: OperationCallback<T, InputEvent, void>;
 	change?: OperationCallback<T, InputEvent, void>;
 	wheel?: OperationCallback<T, WheelEvent, void>;
+	diagonalLimit?: number;
+	diagonalTangent?: number;
 	rawUpdates?: boolean;
 }
 
 type OperationDiff = {
-	point: POINT[];
+	point: POINTLOG[];
 	distance: number[];
 	radian: number[];
 	degree: number[];
@@ -31,37 +43,61 @@ type OperationDiff = {
 export type InputEvent = TouchEvent | PointerEvent | MouseEvent;
 
 export class Operation {
-	id: number;
-	point: POINT;
-	points: POINT[];
+	id!: number;
+	point: POINTLOG;
+	points!: POINTLOG[];
+	className!: string;
+	state!: {
+		move: boolean;
+		press: boolean;
+		swipe: boolean;
+		flick: boolean;
+		longpress: boolean;
+		up: boolean;
+		down: boolean;
+		left: boolean;
+		right: boolean;
+	};
 
 	constructor(event: Touch | PointerEvent | MouseEvent, offset: POINT) {
 		const { clientX, clientY } = event;
-		this.point = [clientX - offset[0], clientY - offset[1]];
+		this.point = [clientX - offset[0], clientY - offset[1], new Date().getTime()];
 
 		if (isTouchEvent(event)) this.id = event.identifier;
 		if (isPointerEvent(event)) this.id = event.pointerId;
 	}
+	refresh() {
+		this.className = `${this.state.move ? 'move' : ''} ${this.state.press ? 'press' : ''} ${
+			this.state.swipe ? 'swipe' : ''
+		} ${this.state.flick ? 'flick' : ''} ${this.state.up ? 'up' : ''} ${
+			this.state.down ? 'down' : ''
+		} ${this.state.left ? 'left' : ''} ${this.state.right ? 'right' : ''} ${
+			this.state.longpress ? 'longpress' : ''
+		}`;
+	}
 }
 
 export class Operations<T extends HTMLElement> {
-	options: OperationsOptions<T>;
-	handlerEl: T;
-	originEl: T;
+	options!: Required<OperationsOptions<T>>;
+	gesture!: {
+		tangent: number;
+		flick: number;
+		play: number;
+	};
+	handlerEl!: T;
+	originEl!: T;
 
 	size: SIZE;
-	offset: POINT;
+	offset!: POINT;
 
-	wheel: POINT_WITH_SCALE;
+	wheel!: POINT_WITH_SCALE;
 	tracked: Operation[];
 	current: Operation[];
-	changed: Operation[];
 
 	constructor(options: OperationsOptions<T>) {
 		this.size = [0, 0];
 		this.tracked = [];
 		this.current = [];
-		this.changed = [];
 		this.setOptions(options);
 	}
 
@@ -84,9 +120,18 @@ export class Operations<T extends HTMLElement> {
 		end = noop,
 		change = noop,
 		wheel = noop,
+		diagonalLimit = DIAGONAL_LIMIT_LOOSE,
+		diagonalTangent,
 		rawUpdates = false
 	}: OperationsOptions<T>) {
-		this.options = { change, start, move, end, wheel, rawUpdates };
+		diagonalTangent = Math.tan(diagonalLimit);
+		this.options = { change, start, move, end, wheel, rawUpdates, diagonalLimit, diagonalTangent };
+		this.gesture = {
+			tangent: diagonalTangent,
+			flick: FLICK_SPEED * FLICK_SPEED,
+			play: PRESS_LIMIT * PRESS_LIMIT
+		};
+
 		return this;
 	}
 
@@ -98,33 +143,51 @@ export class Operations<T extends HTMLElement> {
 		if (!this.originEl) {
 			this.originEl = node;
 		}
-		const byes: (() => void)[] = [];
-		byes.push(listen(node, 'wheel', _wheel));
+		let bye_pointermove: END_LISTENER;
+		let bye_mousemove: END_LISTENER;
+		let bye_touchmove: END_LISTENER;
+		const byes_base: END_LISTENER[] = [];
+		byes_base.push(listen(node, 'wheel', _wheel as EventListener, PASSIVE));
 		if (self.PointerEvent) {
-			byes.push(listen(node, 'pointerdown', _pointerStart));
-			byes.push(listen(node, 'pointerup', _pointerEnd));
-			byes.push(listen(node, 'pointercancel', _pointerEnd));
+			byes_base.push(listen(node, 'pointerdown', _pointerStart as EventListener, PASSIVE));
+			byes_base.push(listen(node, 'pointerup', _pointerEnd as EventListener, PASSIVE));
+			byes_base.push(listen(node, 'pointercancel', _pointerEnd as EventListener, PASSIVE));
 		} else {
-			byes.push(listen(node, 'mousedown', _pointerStart));
-			byes.push(listen(node, 'mouseup', _pointerEnd));
-			byes.push(listen(node, 'touchstart', _touchStart));
-			byes.push(listen(node, 'touchend', _touchEnd));
-			byes.push(listen(node, 'touchcancel', _touchEnd));
+			byes_base.push(listen(node, 'mousedown', _pointerStart as EventListener, PASSIVE));
+			byes_base.push(listen(node, 'mouseup', _pointerEnd as EventListener, PASSIVE));
+			byes_base.push(listen(node, 'touchstart', _touchStart as EventListener, PASSIVE));
+			byes_base.push(listen(node, 'touchend', _touchEnd as EventListener, PASSIVE));
+			byes_base.push(listen(node, 'touchcancel', _touchEnd as EventListener, PASSIVE));
 		}
 
 		return {
 			destroy() {
-				byes.map((fn) => fn());
-				window.removeEventListener('touchmove', _move);
-				window.removeEventListener('mousemove', _move);
+				bye_pointermove && bye_pointermove();
+				bye_mousemove && bye_mousemove();
+				bye_touchmove && bye_touchmove();
+				byes_base.map((fn) => fn());
 			}
 		};
 
-		function _triggerPointerStart(op: Operation, event: InputEvent): boolean {
-			op.points = [op.point];
-			tracker.current.push(op);
-			if (!start(tracker, event)) return false;
-			change(tracker, event);
+		function _triggerPointerStart(pointer: Operation, event: InputEvent): boolean {
+			pointer.points = [pointer.point];
+			pointer.state = {
+				move: false,
+				press: false,
+				swipe: false,
+				flick: false,
+				longpress: false,
+				up: false,
+				down: false,
+				left: false,
+				right: false
+			};
+			pointer.state.press = true;
+			pointer.refresh();
+			tracker.current.push(pointer);
+
+			if (!start!(tracker, event)) return false;
+			change!(tracker, event);
 			return true;
 		}
 
@@ -139,10 +202,16 @@ export class Operations<T extends HTMLElement> {
 					event.target && 'setPointerCapture' in event.target ? event.target : node;
 
 				capturingElement.setPointerCapture(event.pointerId);
-				byes.push(listen(node, rawUpdates ? 'pointerrawupdate' : 'pointermove', _move));
+
+				bye_pointermove ||= listen(
+					node,
+					rawUpdates ? 'pointerrawupdate' : 'pointermove',
+					_move as EventListener,
+					PASSIVE
+				);
 			} else {
 				// MouseEvent
-				byes.push(listen(window, 'mousemove', _move));
+				bye_mousemove ||= listen(document, 'mousemove', _move as EventListener, PASSIVE);
 			}
 		}
 
@@ -151,7 +220,7 @@ export class Operations<T extends HTMLElement> {
 			for (const touch of [...event.changedTouches]) {
 				_triggerPointerStart(new Operation(touch, offset), event);
 			}
-			byes.push(listen(window, 'touchmove', _move));
+			bye_touchmove = listen(window, 'touchmove', _move as EventListener, PASSIVE);
 		}
 
 		function getOperations(event: PointerEvent | MouseEvent | TouchEvent, offset: POINT) {
@@ -159,7 +228,7 @@ export class Operations<T extends HTMLElement> {
 				return [...event.changedTouches].map((e) => new Operation(e, offset));
 			}
 			if ('getCoalescedEvents' in event) {
-				event.getCoalescedEvents().map((e) => new Operation(e, offset));
+				return event.getCoalescedEvents().map((e) => new Operation(e, offset));
 			}
 			return [new Operation(event, offset)];
 		}
@@ -172,18 +241,26 @@ export class Operations<T extends HTMLElement> {
 
 			for (const pointer of changedPointers) {
 				const index = tracker.current.findIndex((p) => p.id === pointer.id);
+
 				if (index === -1) continue; // Not a pointer we're tracking
 
-				pointer.points = tracker.current[index].points;
-				pointer.points.push(pointer.point);
-				tracker.tracked.push(pointer);
-				tracker.current[index] = pointer;
+				const item = tracker.current[index];
+				item.points.push((item.point = pointer.point));
+
+				tracker.tracked.push(item);
+
+				const [headX, headY, headT] = item.points[0];
+				const [tailX, tailY, tailT] = item.point;
+
+				gesture(tailX - headX, tailY - headY, tailT - headT, item.state, tracker.gesture);
+				if (item.state.move) item.state.press = false;
+				item.refresh();
 			}
 
 			if (tracker.tracked.length === 0) return;
 
-			move(tracker, event);
-			change(tracker, event);
+			move!(tracker, event);
+			change!(tracker, event);
 		}
 
 		function _triggerPointerEnd(pointer: Operation, event: InputEvent): boolean {
@@ -192,8 +269,14 @@ export class Operations<T extends HTMLElement> {
 			if (index === -1) return false;
 
 			const cancelled = event.type === 'touchcancel' || event.type === 'pointercancel';
-			if (cancelled) pointer.point = null;
-			end(tracker, event);
+			const item = tracker.current[index];
+			if (cancelled) {
+				item.point = null as any;
+			}
+			item.state.press = false;
+			item.refresh();
+			end!(tracker, event);
+			change!(tracker, event);
 
 			tracker.current.splice(index, 1);
 
@@ -204,12 +287,13 @@ export class Operations<T extends HTMLElement> {
 			const { offset } = tracker.updateByRect();
 			if (!_triggerPointerEnd(new Operation(event, offset), event)) return;
 
-			if (isPointerEvent(event)) {
-				if (tracker.current.length) return;
-				node.removeEventListener(rawUpdates ? 'pointerrawupdate' : 'pointermove', _move);
-			} else {
-				// MouseEvent
-				window.removeEventListener('mousemove', _move);
+			if (bye_pointermove) {
+				bye_pointermove();
+				bye_pointermove = undefined;
+			}
+			if (bye_mousemove) {
+				bye_mousemove();
+				bye_mousemove = undefined;
 			}
 		}
 
@@ -218,7 +302,10 @@ export class Operations<T extends HTMLElement> {
 			for (const touch of [...event.changedTouches]) {
 				_triggerPointerEnd(new Operation(touch, offset), event);
 			}
-			window.removeEventListener('touchmove', _move);
+			if (bye_touchmove) {
+				bye_touchmove();
+				bye_touchmove = undefined;
+			}
 		}
 
 		function _wheel(event: WheelEvent) {
@@ -237,7 +324,7 @@ export class Operations<T extends HTMLElement> {
 
 			const scaleDiff = 1 - deltaY / divisor;
 			tracker.wheel = [clientX - offset[0], clientY - offset[1], scaleDiff];
-			wheel(tracker, event);
+			wheel!(tracker, event);
 		}
 	};
 }
@@ -281,7 +368,7 @@ function relationGap(
 
 			const pan: POINT = [nowP[0] - oldP[0], nowP[1] - oldP[1]];
 
-			const wheel: POINT_WITH_SCALE = [...oldP, oldD ? nowD / oldD : 1];
+			const wheel: POINT_WITH_SCALE = [oldP[0], oldP[1], oldD ? nowD / oldD : 1];
 			gap.pan.push(pan);
 			gap.wheel.push(wheel);
 		}
@@ -290,7 +377,7 @@ function relationGap(
 		return zero(a.points);
 	}
 
-	function zero(points: POINT[]): OperationDiff {
+	function zero(points: POINTLOG[]): OperationDiff {
 		return {
 			point: [points.slice(-1)[0]],
 			distance: [0],
@@ -302,10 +389,10 @@ function relationGap(
 		};
 	}
 
-	function stack(a: POINT, b: POINT) {
-		const [ax, ay] = a;
-		const [bx, by] = b;
-		const point: POINT = [(ax + bx) / 2, (ay + by) / 2];
+	function stack(a: POINTLOG, b: POINTLOG) {
+		const [ax, ay, at] = a;
+		const [bx, by, bt] = b;
+		const point: POINTLOG = [(ax + bx) / 2, (ay + by) / 2, (at + bt) / 2];
 		const distance = ((bx - ax) ** 2.0 + (by - ay) ** 2.0) ** 0.5;
 		const radian = Math.atan2(by - ay, bx - ax);
 		const degree = (radian * 180) / Math.PI;
@@ -315,4 +402,33 @@ function relationGap(
 		gap.radian.push(radian);
 		gap.degree.push(degree);
 	}
+}
+
+function gesture(
+	diffX: number,
+	diffY: number,
+	diffT: number,
+	data: Operation['state'],
+	{ play, flick, tangent }: Operations<any>['gesture']
+) {
+	const sizeX = Math.abs(diffX);
+	const sizeY = Math.abs(diffY);
+	const size = sizeX * sizeX + sizeY * sizeY;
+	const speed = size / diffT;
+
+	data.move = size > play;
+
+	const isPreSwipeX = data.move && sizeY / sizeX < tangent;
+	const isPreSwipeY = data.move && sizeX / sizeY < tangent;
+	const isSwipeX = isPreSwipeX && sizeX > state.threshold[0];
+	const isSwipeY = isPreSwipeY && sizeY > state.threshold[1];
+
+	data.swipe = isSwipeX || isSwipeY;
+	data.flick = data.swipe && speed >= flick;
+
+	data.left = isSwipeX && diffX < 0;
+	data.right = isSwipeX && diffX > 0;
+
+	data.up = isSwipeY && diffY < 0;
+	data.down = isSwipeY && diffY > 0;
 }
