@@ -1,6 +1,6 @@
 {
 	"name": "svelte-pointer-tracker",
-	"version": "0.2.1",
+	"version": "0.2.2",
 	"homepage": "https://github.com/7korobi/svelte-pointer-tracker/blob/main/src/lib/",
 	"license": "MIT",
 	"keywords": [
@@ -25,22 +25,22 @@
 		"format": "prettier --plugin-search-dir . --write ."
 	},
 	"devDependencies": {
-		"@playwright/test": "^1.27.0",
-		"@sveltejs/adapter-auto": "1.0.0-next.80",
-		"@sveltejs/kit": "1.0.0-next.511",
+		"@playwright/test": "^1.27.1",
+		"@sveltejs/adapter-auto": "1.0.0-next.83",
+		"@sveltejs/kit": "1.0.0-next.516",
 		"@sveltejs/package": "1.0.0-next.5",
 		"prettier": "^2.7.1",
-		"prettier-plugin-svelte": "^2.7.1",
-		"svelte": "^3.50.1",
-		"svelte-check": "^2.9.1",
+		"prettier-plugin-svelte": "^2.8.0",
+		"svelte": "^3.52.0",
+		"svelte-check": "^2.9.2",
 		"svelte-preprocess": "^4.10.7",
 		"typescript": "^4.8.4",
-		"vite": "^3.1.6"
+		"vite": "^3.1.8"
 	},
 	"dependencies": {
 		"npm-run-all": "^4.1.5",
-		"svelte-browser": "^0.3.21",
-		"svelte-petit-utils": "^0.2.1",
+		"svelte-browser": "^0.3.22",
+		"svelte-petit-utils": "^0.3.0",
 		"tslib": "^2.4.0"
 	}
 }

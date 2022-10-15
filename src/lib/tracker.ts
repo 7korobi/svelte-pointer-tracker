@@ -3,7 +3,7 @@ import { listen } from 'svelte/internal';
 import type { POINT, POINT_WITH_SCALE, SIZE, END_LISTENER } from 'svelte-petit-utils';
 import { isLegacy } from 'svelte-browser';
 import { PRESS_LIMIT } from 'svelte-browser/const';
-import { state } from 'svelte-browser/store';
+import { gesture, type OperationLimit, type OperationSwitch } from './util';
 
 enum Button {
 	Left
@@ -47,17 +47,7 @@ export class Operation {
 	point: POINTLOG;
 	points!: POINTLOG[];
 	className!: string;
-	state!: {
-		move: boolean;
-		press: boolean;
-		swipe: boolean;
-		flick: boolean;
-		longpress: boolean;
-		up: boolean;
-		down: boolean;
-		left: boolean;
-		right: boolean;
-	};
+	state!: OperationSwitch;
 
 	constructor(event: Touch | PointerEvent | MouseEvent, offset: POINT) {
 		const { clientX, clientY } = event;
@@ -79,11 +69,7 @@ export class Operation {
 
 export class Operations<T extends HTMLElement> {
 	options!: Required<OperationsOptions<T>>;
-	gesture!: {
-		tangent: number;
-		flick: number;
-		play: number;
-	};
+	gesture!: OperationLimit;
 	handlerEl!: T;
 	originEl!: T;
 
@@ -165,7 +151,7 @@ export class Operations<T extends HTMLElement> {
 				bye_pointermove && bye_pointermove();
 				bye_mousemove && bye_mousemove();
 				bye_touchmove && bye_touchmove();
-				byes_base.map((fn) => fn());
+				byes_base.map((fn) => fn!());
 			}
 		};
 
@@ -402,33 +388,4 @@ function relationGap(
 		gap.radian.push(radian);
 		gap.degree.push(degree);
 	}
-}
-
-function gesture(
-	diffX: number,
-	diffY: number,
-	diffT: number,
-	data: Operation['state'],
-	{ play, flick, tangent }: Operations<any>['gesture']
-) {
-	const sizeX = Math.abs(diffX);
-	const sizeY = Math.abs(diffY);
-	const size = sizeX * sizeX + sizeY * sizeY;
-	const speed = size / diffT;
-
-	data.move = size > play;
-
-	const isPreSwipeX = data.move && sizeY / sizeX < tangent;
-	const isPreSwipeY = data.move && sizeX / sizeY < tangent;
-	const isSwipeX = isPreSwipeX && sizeX > state.threshold[0];
-	const isSwipeY = isPreSwipeY && sizeY > state.threshold[1];
-
-	data.swipe = isSwipeX || isSwipeY;
-	data.flick = data.swipe && speed >= flick;
-
-	data.left = isSwipeX && diffX < 0;
-	data.right = isSwipeX && diffX > 0;
-
-	data.up = isSwipeY && diffY < 0;
-	data.down = isSwipeY && diffY > 0;
 }
