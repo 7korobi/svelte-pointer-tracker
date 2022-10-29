@@ -9,9 +9,9 @@ specifiers:
   prettier: ^2.7.1
   prettier-plugin-svelte: ^2.8.0
   svelte: ^3.52.0
-  svelte-browser: ^0.4.2
+  svelte-browser: ^0.4.4
   svelte-check: ^2.9.2
-  svelte-petit-utils: ^0.3.0
+  svelte-petit-utils: ^0.3.2
   svelte-preprocess: ^4.10.7
   tslib: ^2.4.0
   typescript: ^4.8.4
@@ -20,8 +20,8 @@ specifiers:
 
 dependencies:
   npm-run-all: 4.1.5
-  svelte-browser: 0.4.2
-  svelte-petit-utils: 0.3.0
+  svelte-browser: 0.4.4
+  svelte-petit-utils: 0.3.2
   tslib: 2.4.0
   ua-parser-js: 1.0.32
 
@@ -1730,10 +1730,10 @@ packages:
     resolution: {integrity: sha512-ot0WnXS9fgdkgIcePe6RHNk1WA8+muPa6cSjeR3V8K27q9BB1rTE3R1p7Hv0z1ZyAc8s6Vvv8DIyWf681MAt0w==}
     engines: {node: '>= 0.4'}
 
-  /svelte-browser/0.4.2:
-    resolution: {integrity: sha512-JJzBj04o9wDEzuh4OdYHEMvffE+C7DRCFjgDmiRoPg2UsfUHjZOHgB5/xyPCgkYe6/v4lD6FprwhCdKg2C7D6g==}
+  /svelte-browser/0.4.4:
+    resolution: {integrity: sha512-h0gAjicgZ1GgSsoI85P+iyK1vckoE+VzXOzd1R0t4W2cU+xzEzaOSuE9XicWPvzRtESd09RaP9+DS69HDCQ1qA==}
     dependencies:
-      svelte-petit-utils: 0.3.0
+      svelte-petit-utils: 0.3.2
       tslib: 2.4.0
       ua-parser-js: 1.0.32
     dev: false
@@ -1775,8 +1775,8 @@ packages:
       svelte: 3.52.0
     dev: true
 
-  /svelte-petit-utils/0.3.0:
-    resolution: {integrity: sha512-OGzFxbD/3ZNK5pvx5OeTMhWJSoAzh/FvAu6QiUyU2KCx9AAtkOHFdcUkAH+csT02OpCJlmO0HGg1mRo0eHTYTQ==}
+  /svelte-petit-utils/0.3.2:
+    resolution: {integrity: sha512-xWGewqVSuIi67g/btTFKaBzVpRFmegOb4IwwbtZmwdBEoQIMZFIkDePNxJ7y2JEbpmO3vXlAoM35dlHtC5RBoQ==}
     dependencies:
       tslib: 2.4.0
     dev: false
