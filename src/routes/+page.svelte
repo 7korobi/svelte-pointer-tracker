@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Zoom, Pen, LongPress } from '$lib';
+	import { Zoom, Pen } from '$lib';
 	import { Browser } from 'svelte-browser';
 
 	let ix: number;
@@ -16,14 +16,6 @@
 <h1>Welcome to your library project</h1>
 <p>Create your package using @sveltejs/package and preview/showcase your work with SvelteKit</p>
 <p>Visit <a href="https://kit.svelte.dev">kit.svelte.dev</a> to read the documentation</p>
-
-<LongPress active={hello === 'world!'} disabled>Hello World!</LongPress>
-<LongPress
-	active={hello === 'world!'}
-	onPress={() => (hello = 'world!')}
-	onClick={() => (hello = 'stay.')}>Hello World!</LongPress
->
-hello {hello}
 
 <table>
 	<tr
