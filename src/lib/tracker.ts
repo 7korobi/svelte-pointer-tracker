@@ -3,7 +3,7 @@ import { listen } from 'svelte/internal';
 import type { POINT, POINT_WITH_SCALE, SIZE, END_LISTENER } from 'svelte-petit-utils';
 import { isLegacy } from 'svelte-browser';
 import { PRESS_LIMIT } from 'svelte-browser/const';
-import { gesture, type OperationLimit, type OperationSwitch } from './util';
+import { gesture, type OperationLimit, type OperationSwitch } from './util.js';
 
 enum Button {
 	Left
