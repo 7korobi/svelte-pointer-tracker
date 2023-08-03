@@ -43,6 +43,6 @@
 		"svelte-browser": "^0.4.4",
 		"svelte-petit-utils": "^0.3.4",
 		"tslib": "^2.4.1",
-		"ua-parser-js": "^1.0.32"
+		"ua-parser-js": "^1.0.33"
 	}
 }
